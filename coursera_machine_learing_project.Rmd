@@ -1,0 +1,95 @@
+---
+title: 'Unilateral Dumbbell Biceps Curl: Execution Classification Study'
+author: "Christian Karcher"
+date: "6 November 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of the participants to predict the manner in which they did the exercise.
+
+## Data
+
+### Packages & Seed
+
+```{r, message=F, warning=F}
+library(caret); library(rpart); library(randomForest);
+set.seed(314159)
+```
+
+### Import
+
+The data files pml-training.csv and pml-testing.csv were loaded from https://d396qusza40orc.cloudfront.net/predmachlearn/ and stored locally for easier access
+
+```{r}
+fullTraining <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+finalTest <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+dim(fullTraining); dim(finalTest)
+```
+
+The full training dataset consists of 19622 observations and 160 variables, while the data set for the final test only contains 20 observations and the same variables as the training set.
+
+### Cleaning
+
+In order to ease the machine learning part of this study, let us first get rid of some variables such as user and time information as well as columns containing "NA"s.
+
+```{r}
+variables <- names(finalTest[,!colSums(is.na(finalTest))])[8:59]
+fullTraining <- fullTraining[,c(variables,"classe")]
+finalTest <- finalTest[,c(variables,"problem_id")]
+```
+
+## Partition
+
+Following the recommendation in the course Practical Machine Learning, we will split our data into a training data set and a testing data set (not to be confused with the data in pml-testing.csv). This will allow us to estimate the out of sample error of our predictor.
+
+
+```{r}
+inTrain <- createDataPartition(fullTraining$classe, p=0.6, list=FALSE)
+training <- fullTraining[inTrain,]
+testing <- fullTraining[-inTrain,]
+
+dim(training); dim(testing);
+```
+
+## Machine Learning Models
+
+### Model 1: Decision Tree
+
+The first approach is to use a rather naive rpart approach, which is fast but will not yield a satisfying accuary.
+
+```{r}
+modFitDT <- rpart(classe ~ ., data=training, method="class")
+predDT <- predict(modFitDT, testing, type = "class")
+confusionMatrix(predDT, testing$classe)
+```
+
+As can be seen, the accuray of this model is well below 75%, which is insufficient.
+
+### Model 2: Random forest
+
+The second approch is to use a random forest approach, which is computationally expensive, but should yield a rather high accuracy.
+
+```{r}
+modRF <- randomForest(classe ~ ., data = training, ntree = 1000)
+predRF <- predict(modRF, testing, type = "class")
+confusionMatrix(predRF, testing$classe)
+```
+
+As can be seen, the accuracy of this model is above 99% percent in the out-of-sample case, i.e. less than 0.7% out-of-sample error.
+
+## Final Test
+
+The Random Forest model will be applied to predict the 20 quiz results (testing dataset) as shown below.
+
+```{r}
+predict(modRF, finalTest, type = "class")
+```
+
+This completes the course project.
